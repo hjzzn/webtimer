@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 from apscheduler.schedulers.background import BackgroundScheduler
+import random  # 1. 必须导入这个随机数库
 
 # 引入 MQTT 核心通信库
 try:
@@ -60,6 +61,11 @@ MQTT_PORT = 8883  # 强制使用 TLS/SSL 加密端口
 # 🔐 您提供的真实认证账号密码
 MQTT_USER = "hjzzn"
 MQTT_PASS = "netzzn"
+
+# 1. 生成 100 到 999 之间的随机三位数
+random_suffix = random.randint(100, 999)
+# 2. 用字符串格式化（f-string）把随机数拼接到你的基础 ID 后面
+MY_CLIENT_ID = f"Home_IoT_Gateway_Backend_{random_suffix}"
 
 # 证书文件名
 CA_CERT_NAME = "emqxsl-ca.crt"
@@ -176,7 +182,10 @@ async def lifespan(app: FastAPI):
 
     if MQTT_AVAILABLE:
         try:
-            mqtt_client = mqtt.Client()
+            mqtt_client = mqtt.Client(
+                client_id=MY_CLIENT_ID,
+                clean_session=True
+            )
             mqtt_client.on_connect = on_mqtt_connect
 
             # 【安全登录适配】：注入您提供的真实认证鉴权信息
