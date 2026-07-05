@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>智能网关控制台</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 30px; background-color: #f4f6f9; color: #333;}
+        .nav-bar { max-width: 1100px; margin: 0 auto 20px auto; display: flex; gap: 10px; background: #343a40; padding: 10px; border-radius: 6px; }
+        .nav-bar a { color: #adbcda; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-size: 15px;}
+        .nav-bar a.active { background-color: #28a745; color: white; }
+        .nav-bar a:hover:not(.active) { color: white; background: #495057; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 25px;}
+        h2 { margin-top: 0; color: #222; font-size: 20px; border-left: 4px solid #28a745; padding-left: 10px; margin-bottom: 20px;}
+        .form-row { display: flex; gap: 12px; margin-bottom: 15px; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 160px; display: flex; flex-direction: column; }
+        label { margin-bottom: 6px; font-weight: bold; color: #555; font-size: 14px; }
+        input, select { padding: 9px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        input:focus, select:focus { border-color: #28a745; outline: none; }
+        button { background-color: #28a745; color: white; padding: 10px 22px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;}
+        button:hover { background-color: #218838; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px; }
+        th { background-color: #f8f9fa; color: #444; font-weight: bold; }
+        .device-link { color: #007bff; text-decoration: none; font-weight: bold; cursor: pointer; }
+        .device-link:hover { text-decoration: underline; color: #0056b3; }
+        .btn-delete { background-color: #dc3545; padding: 5px 10px; color: white; border-radius: 4px; border: none; cursor: pointer;}
+        .btn-delete:hover { background-color: #bd2130; }
+        .code-style { font-family: Consolas, monospace; background: #f1f1f1; padding: 2px 5px; border-radius: 4px; font-size: 13px; color: #c7254e;}
+
+        /* 状态与类型微标样式 */
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white;}
+        .badge-online { background-color: #28a745; }
+        .badge-offline { background-color: #6c757d; }
+        .badge-type-switch { background-color: #17a2b8; }   /* 开关器蓝绿色 */
+        .badge-type-sensor { background-color: #6f42c1; }   /* 传感器紫色 */
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <a href="/" class="active">🛠️ 智能设备集成中心 (首页)</a>
+        <a href="/query">🔍 全网定时排期总览</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>🛠️ 注册新硬件设备</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="devName">设备别名:</label>
+                    <input type="text" id="devName" placeholder="如：智能排插">
+                </div>
+                <div class="form-group">
+                    <label for="devUUID">设备 UUID:</label>
+                    <input type="text" id="devUUID" placeholder="如：io-plug-05">
+                </div>
+                <div class="form-group">
+                    <label for="devType">设备类型:</label>
+                    <select id="devType">
+                        <option value="开关器">🔌 开关器 (可控执行机构)</option>
+                        <option value="传感器">📡 传感器 (数据采集上报)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="devLocation">存放地点:</label>
+                    <input type="text" id="devLocation" placeholder="如：二楼机房">
+                </div>
+                <div class="form-group">
+                    <label for="devStatus">网络状态:</label>
+                    <select id="devStatus">
+                        <option value="在线">在线 (Online)</option>
+                        <option value="离线">离线 (Offline)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="devData">运行快照数据:</label>
+                    <input type="text" id="devData" placeholder="如：{'relay':1}">
+                </div>
+            </div>
+            <button onclick="addDevice()">保存设备到系统</button>
+
+            <h2 style="margin-top: 40px; border-left-color: #343a40;">📋 受控硬件资产台账（点击名称配置定时器）</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>设备名称 (点击进入配置)</th>
+                        <th>UUID</th>
+                        <th>设备类型</th>
+                        <th>存放地点</th>
+                        <th>当前状态</th>
+                        <th>快照数据</th>
+                        <th>安全操作</th>
+                    </tr>
+                </thead>
+                <tbody id="deviceTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    async function fetchDevices() {
+        const response = await fetch('/api/devices');
+        const devices = await response.json();
+        const tbody = document.getElementById('deviceTableBody');
+        tbody.innerHTML = '';
+
+        devices.forEach(dev => {
+            const statusClass = dev.status === '在线' ? 'badge-online' : 'badge-offline';
+            // 根据类型绑定对应的 CSS 样式类
+            const typeClass = dev.device_type === '开关器' ? 'badge-type-switch' : 'badge-type-sensor';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><a class="device-link" href="/detail?name=${encodeURIComponent(dev.name)}">💡 ${dev.name}</a></td>
+                    <td><span class="code-style">${dev.uuid}</span></td>
+                    <td><span class="badge ${typeClass}">${dev.device_type}</span></td>
+                    <td><b>${dev.location}</b></td>
+                    <td><span class="badge ${statusClass}">${dev.status}</span></td>
+                    <td><span class="code-style">${dev.data || '无'}</span></td>
+                    <td><button class="btn-delete" onclick="deleteDevice(${dev.id})">注销删除</button></td>
+                </tr>`;
+        });
+    }
+
+    async function addDevice() {
+        const name = document.getElementById('devName').value.trim();
+        const uuid = document.getElementById('devUUID').value.trim();
+        const device_type = document.getElementById('devType').value; // 获取类型
+        const location = document.getElementById('devLocation').value.trim();
+        const status = document.getElementById('devStatus').value;
+        const data = document.getElementById('devData').value.trim();
+
+        if(!name || !uuid || !location) { alert('名称、UUID 和 存放地点 为必填项！'); return; }
+
+        const response = await fetch('/api/devices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, uuid, device_type, location, status, data })
+        });
+
+        if(response.ok) {
+            document.getElementById('devName').value = '';
+            document.getElementById('devUUID').value = '';
+            document.getElementById('devLocation').value = '';
+            document.getElementById('devData').value = '';
+            fetchDevices();
+        } else {
+            const err = await response.json(); alert('添加失败: ' + err.detail);
+        }
+    }
+
+    async function deleteDevice(id) {
+        if(confirm('警告：删除该设备将同步彻底销毁其挂载的所有定时器！确认删除吗？')) {
+            await fetch(`/api/devices/${id}`, { method: 'DELETE' });
+            fetchDevices();
+        }
+    }
+
+    window.onload = fetchDevices;
+</script>
+</body>
+</html>

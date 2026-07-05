@@ -1,0 +1,30 @@
+1.软件条件：用python 和 fastapi ,SQLite, 编程软件为PyCharm，系统 为  ubuntu 
+2.目标：通过网页实现增加或减少定时事项，要求可以实现按分钟，按小时，按天，按周，按月，按年周期定时，也可以按次一次定时
+3. python实现后端程序，前端用网页实现
+4.每条定时任务中可以指定设备名称和一条指令
+
+
+增加一个可以增加和删除设备的功能 ，设备的字段有名称，UUID，状态,数据，4个字段
+请将设备管理与定时功能分成两个页面
+再增加一个页面，可以查询某个设备已经设定的全部定时事件，并且能够删除某个多余的定时事件或者暂时禁用
+
+我想改变程序的结构，把添加设备放在首页，并且增加设备的存放地点字段，当我点击已经增加的设备后自动跳转到定时器设置页面，该设备已经设定的定时器列在页面下部，上部分显示该设备的各种属性。
+
+我还想在设备中增加类型字段，类型分为开关器和传感器
+
+开关器的指令格式为json格式：{SWITCH/设备的UUID/POWER:OFF}或{SWITCH/设备的UUID/POWER:ON}
+
+发送命令时直接调用函数sendCommandToMqtt(jsonCmd) ，该函数用于发送消息到MQTT服务器，目前暂时为空，你认为怎么样，需要优化吗？
+
+MQTT服务器信息如下：
+MQTT Connection Information
+Address:
+u1617077.ala.asia-southeast1.emqxsl.com
+MQTT over TLS/SSL Port:
+8883
+WebSocket over TLS/SSL Port:
+8084
+CA Certificate:
+CA Certificate Expiration: 2031.11.10
+
+mqtt服务器的连接用户名：hjzzn,密码：netzzn

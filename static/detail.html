@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>设备集中联动配置看板</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 30px; background-color: #f4f6f9; color: #333;}
+        .nav-bar { max-width: 1000px; margin: 0 auto 20px auto; display: flex; gap: 10px; background: #343a40; padding: 10px; border-radius: 6px; }
+        .nav-bar a { color: #adbcda; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-size: 15px;}
+        .nav-bar a:hover { color: white; background: #495057; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 25px;}
+
+        /* 硬件信息栅格 */
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-top: 15px;}
+        .info-block { background: #e9ecef; padding: 15px; border-radius: 6px; border-left: 4px solid #007bff;}
+        .info-block span { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: bold;}
+        .info-block strong { font-size: 16px; color: #111; word-break: break-all;}
+
+        h2 { margin-top: 0; color: #222; font-size: 19px; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 20px;}
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-group { flex: 1; display: flex; flex-direction: column; }
+        label { margin-bottom: 6px; font-weight: bold; color: #555; font-size: 14px; }
+        input, select { padding: 9px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+        button { color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;}
+        .btn-blue { background-color: #007bff; } .btn-blue:hover { background-color: #0056b3; }
+        .btn-green { background-color: #28a745; } .btn-green:hover { background-color: #218838; }
+
+        /* 开关控制专属精美组件样式 */
+        .switch-sandbox { display: flex; align-items: center; justify-content: space-between; background: #ebf3ff; border: 1px dashed #007bff; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        .interactive-btn { font-size: 16px; padding: 12px 30px; border-radius: 30px; border: none; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: all 0.2s;}
+        .btn-state-on { background-color: #28a745; color: white; }
+        .btn-state-on:hover { background-color: #218838; transform: scale(1.03); }
+        .btn-state-off { background-color: #dc3545; color: white; }
+        .btn-state-off:hover { background-color: #bd2130; transform: scale(1.03); }
+
+        .countdown-zone { display: flex; align-items: center; gap: 10px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #ced4da; }
+        .timer-running { color: #dc3545; font-weight: bold; animation: blink 1s infinite; font-size: 15px;}
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 11px; text-align: left; font-size: 14px; }
+        th { background-color: #f8f9fa; color: #444; }
+        .btn-delete { background-color: #dc3545; padding: 5px 10px; color: white; border-radius: 4px; border: none; cursor: pointer;}
+        .btn-toggle { background-color: #ffc107; padding: 5px 10px; color: #222; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; margin-right: 5px;}
+        .code-style { font-family: Consolas, monospace; background: #f1f1f1; padding: 2px 5px; border-radius: 4px; font-size: 13px; color: #c7254e;}
+        .status-active { background-color: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold;}
+        .status-disabled { background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold;}
+        .row-disabled { color: #999; background-color: #f9f9f9; }
+        @keyframes blink { 50% { opacity: 0.4; } }
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <a href="/">⬅️ 返回首页设备中心</a>
+        <a href="/query">🔍 全网定时排期总览</a>
+    </div>
+
+    <div class="container">
+        <div class="card" style="border-top: 4px solid #007bff;">
+            <h2 id="devTitle">📡 设备物理资产属性透视</h2>
+            <div class="info-grid">
+                <div class="info-block"><span>设备别名</span><strong id="infoName">-</strong></div>
+                <div class="info-block"><span>唯一 UUID</span><strong id="infoUUID" class="code-style">-</strong></div>
+                <div class="info-block" style="border-left-color: #6f42c1;"><span>设备类型</span><strong id="infoType">-</strong></div>
+                <div class="info-block" style="border-left-color: #e83e8c;"><span>存放地点</span><strong id="infoLocation">-</strong></div>
+                <div class="info-block" style="border-left-color: #28a745;"><span>当前网络状态</span><strong id="infoStatus">-</strong></div>
+                <div class="info-block" style="border-left-color: #17a2b8;"><span>核心运行快照</span><strong id="infoData" class="code-style">-</strong></div>
+            </div>
+
+            <div id="switchSandboxWrapper" style="display: none;">
+                <div class="switch-sandbox">
+                    <div>
+                        <h4 style="margin: 0 0 5px 0; color: #0056b3;">⚡ 物理级即时双向调控</h4>
+                        <p style="margin: 0; font-size: 13px; color: #666;">点击右侧按钮，硬件继电器将即时切换动作</p>
+                    </div>
+                    <div>
+                        <button id="immediateSwitchBtn" class="interactive-btn btn-state-off" onclick="toggleImmediatePower()">
+                            加载状态中...
+                        </button>
+                    </div>
+                </div>
+
+                <div class="switch-sandbox" style="background: #fdf6e2; border-color: #ffc107; margin-top: 15px;">
+                    <div>
+                        <h4 style="margin: 0 0 5px 0; color: #856404;">⏳ 临时安全倒计时器</h4>
+                        <p style="margin: 0; font-size: 13px; color: #666;">设定固定秒数，到点后自动触发对应的单次开/关指令</p>
+                    </div>
+                    <div class="countdown-zone">
+                        <input type="number" id="countdownSeconds" placeholder="秒数" style="width: 80px; padding: 6px;" min="1" value="10">
+                        <span style="font-size: 14px; font-weight: bold;">秒后，执行命令:</span>
+                        <select id="countdownCmd" style="padding: 6px;">
+                            <option value="OFF">❌ 关 (OFF)</option>
+                            <option value="ON">🟢 开 (ON)</option>
+                        </select>
+                        <button class="btn-blue" onclick="startCountdown()" style="padding: 7px 15px;">启动倒计时</button>
+                    </div>
+                </div>
+                <div id="countdownLiveStatus" style="text-align: right; margin-top: 5px; font-size: 13px; padding-right: 10px;"></div>
+            </div>
+        </div>
+
+        <div class="card" style="border-top: 4px solid #28a745;">
+            <h2 style="border-left-color: #28a745;">⏰ 为此设备排期全周期定时器</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="taskName">定时事项名称:</label>
+                    <input type="text" id="taskName" placeholder="如：早间定时开启">
+                </div>
+                <div class="form-group">
+                    <label for="taskType">周期定时模式:</label>
+                    <select id="taskType" onchange="toggleTimeInput()">
+                        <option value="once">单次定时 (一次性)</option>
+                        <option value="minute">按分钟周期 (每隔X分钟)</option>
+                        <option value="hour">按小时周期 (每隔X小时)</option>
+                        <option value="daily">按天周期 (每天固定时间)</option>
+                        <option value="weekly">按周周期 (每周固定日子)</option>
+                        <option value="monthly">按月周期 (每月固定日子)</option>
+                        <option value="yearly">按年周期 (每年固定日子)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="command">触发执行指令:</label>
+                    <span id="cmdInputContainer">
+                        <input type="text" id="command" placeholder="请输入操作指令">
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" id="timeContainer">
+                    <label>选择日期与时间:</label>
+                    <input type="datetime-local" id="taskTime">
+                </div>
+            </div>
+            <button onclick="addTask()" class="btn-green">部署并挂载定时器</button>
+
+            <h2 style="margin-top: 40px; border-left-color: #343a40;" id="listTitle">📋 该设备已经绑定的全部定时事件</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>事项名称</th>
+                        <th>执行指令</th>
+                        <th>周期类型</th>
+                        <th>具体时间配置</th>
+                        <th>当前引擎状态</th>
+                        <th>核心控制</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const g_deviceName = urlParams.get('name');
+    let g_currentPowerState = "OFF"; // 全局缓存设备当前实际开关状态
+    let g_countdownInterval = null;
+
+    function toggleTimeInput() {
+        const type = document.getElementById('taskType').value;
+        const container = document.getElementById('timeContainer');
+        if (type === 'once') container.innerHTML = `<label>选择日期与时间:</label><input type="datetime-local" id="taskTime">`;
+        else if (type === 'minute') container.innerHTML = `<label>设置间隔分钟数:</label><input type="number" id="taskTime" min="1" max="59" value="5">`;
+        else if (type === 'hour') container.innerHTML = `<label>时间设置:</label><div style="display: flex; gap: 10px;"><span style="align-self: center;">每隔</span><input type="number" id="taskHourInterval" min="1" max="23" value="1" style="width:20px; flex:1"> <span style="align-self: center;">小时，在第</span><input type="number" id="taskTime" min="0" max="59" value="0" style="width:20px; flex:1"> <span style="align-self: center;">分钟触发</span></div>`;
+        else if (type === 'daily') container.innerHTML = `<label>选择每天触发时间:</label><input type="time" id="taskTime">`;
+        else if (type === 'weekly') container.innerHTML = `<label>选择每周触发时间:</label><div style="display: flex; gap: 10px;"><select id="taskWeek" style="width: 30%;"><option value="0">星期一</option><option value="1">星期二</option><option value="2">星期三</option><option value="3">星期四</option><option value="4">星期五</option><option value="5">星期六</option><option value="6">星期日</option></select><input type="time" id="taskTime" style="width: 70%;"></div>`;
+        else if (type === 'monthly') container.innerHTML = `<label>选择每月触发时间:</label><div style="display: flex; gap: 10px;"><select id="taskMonthDay" style="width: 30%;">${Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}号</option>`).join('')}</select><input type="time" id="taskTime" style="width: 70%;"></div>`;
+        else if (type === 'yearly') container.innerHTML = `<label>选择每年触发时间:</label><div style="display: flex; gap: 10px;"><select id="taskYearMonth" style="width: 20%;">${Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1}月</option>`).join('')}</select><select id="taskYearDay" style="width: 20%;">${Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}号</option>`).join('')}</select><input type="time" id="taskTime" style="width: 60%;"></div>`;
+    }
+
+    // --- 加载硬件资产属性 & 差异化业务处理 ---
+    async function loadDeviceAttributes() {
+        if (!g_deviceName) { alert('未检测到合法设备名参数！'); return; }
+        const response = await fetch(`/api/devices/${encodeURIComponent(g_deviceName)}`);
+        if (!response.ok) { alert('获取硬件属性失败！'); return; }
+        const dev = await response.json();
+
+        document.getElementById('devTitle').innerHTML = `📡 设备 [${dev.name}] 物理属性透视`;
+        document.getElementById('listTitle').innerHTML = `📋 设备 [${dev.name}] 已设定的全部定时事件`;
+        document.getElementById('infoName').innerText = dev.name;
+        document.getElementById('infoUUID').innerText = dev.uuid;
+        document.getElementById('infoType').innerText = dev.device_type;
+        document.getElementById('infoLocation').innerText = dev.location;
+        document.getElementById('infoStatus').innerText = dev.status;
+        document.getElementById('infoData').innerText = dev.data || '无数据';
+
+        // 核心差异逻辑：判断如果是开关器，注入专属操控控制台，并限定定时器指令只能选择 ON/OFF
+        if (dev.device_type === "开关器") {
+            document.getElementById('switchSandboxWrapper').style.display = 'block';
+
+            // 将普通定时器输入框强行锁死为规范的 ON / OFF 选择下拉菜单
+            document.getElementById('cmdInputContainer').innerHTML = `
+                <select id="command">
+                    <option value="ON">🟢 开启指令 (ON)</option>
+                    <option value="OFF">❌ 关闭指令 (OFF)</option>
+                </select>`;
+
+            // 解析当前快照状态，控制即时按钮的样式高亮
+            if (dev.data && dev.data.includes("ON")) {
+                g_currentPowerState = "ON";
+                document.getElementById('immediateSwitchBtn').innerText = "💡 状态：已开启 (点击关闭)";
+                document.getElementById('immediateSwitchBtn').className = "interactive-btn btn-state-on";
+            } else {
+                g_currentPowerState = "OFF";
+                document.getElementById('immediateSwitchBtn').innerText = "🔌 状态：已关闭 (点击开启)";
+                document.getElementById('immediateSwitchBtn').className = "interactive-btn btn-state-off";
+            }
+        }
+    }
+
+    // --- 功能1：即时点击开关电源动作控制 ---
+    async function toggleImmediatePower() {
+        const nextState = g_currentPowerState === "ON" ? "OFF" : "ON";
+        const response = await fetch(`/api/devices/${encodeURIComponent(g_deviceName)}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: nextState })
+        });
+        if(response.ok) {
+            // 重新刷新属性块和开关控制台外观
+            loadDeviceAttributes();
+        }
+    }
+
+    // --- 功能2：本地高精度倒计时并异步注册 ---
+    function startCountdown() {
+        const secondsInput = document.getElementById('countdownSeconds').value;
+        const targetCmd = document.getElementById('countdownCmd').value;
+        let remaining = parseInt(secondsInput);
+
+        if (isNaN(remaining) || remaining <= 0) { alert("请输入正整数秒数！"); return; }
+
+        // 1. 同步把请求发送给后端任务调度器在未来精准触发日志
+        fetch(`/api/devices/${encodeURIComponent(g_deviceName)}/countdown`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seconds: remaining, command: targetCmd })
+        });
+
+        // 2. 前端启动本地定时器刷新视觉特效
+        if(g_countdownInterval) clearInterval(g_countdownInterval);
+        const liveStatus = document.getElementById('countdownLiveStatus');
+
+        g_countdownInterval = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                clearInterval(g_countdownInterval);
+                liveStatus.innerHTML = `🎉 倒计时结束！已发出 <b>${targetCmd}</b> 指令。`;
+                // 延迟 1.5 秒重新刷新设备最新开关快照状态
+                setTimeout(() => { loadDeviceAttributes(); liveStatus.innerText = ""; }, 1500);
+            } else {
+                liveStatus.innerHTML = `<span class="timer-running">⌛ 安全线程运行中：将在 ${remaining} 秒后执行硬件 [${targetCmd}]</span>`;
+            }
+        }, 1000);
+    }
+
+    // --- 加载该硬件绑定的全周期任务清单 ---
+    async function loadDeviceTasks() {
+        const response = await fetch(`/api/tasks?device_name=${encodeURIComponent(g_deviceName)}`);
+        const tasks = await response.json();
+        const tbody = document.getElementById('taskTableBody');
+        tbody.innerHTML = '';
+
+        const typeMap = { 'once': '单次', 'minute': '按分钟', 'hour': '按小时', 'daily': '每天', 'weekly': '每周', 'monthly': '每月', 'yearly': '每年' };
+        const weeks = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+        tasks.forEach(task => {
+            let displayTime = task.time_value;
+            if (task.task_type === 'minute') displayTime = `每隔 ${task.time_value} 分钟`;
+            else if (task.task_type === 'hour') { const parts = task.time_value.split(' '); displayTime = `每隔 ${parts[0]} 小时第 ${parts[1]} 分钟`; }
+            else if (task.task_type === 'weekly') { const parts = task.time_value.split(' '); displayTime = `${weeks[parts[0]]} ${parts[1]}`; }
+            else if (task.task_type === 'monthly') { const parts = task.time_value.split(' '); displayTime = `每月 ${parts[0]}号 ${parts[1]}`; }
+            else if (task.task_type === 'yearly') { const parts = task.time_value.split(' '); displayTime = `每年 ${parts[0]}月${parts[1]}号 ${parts[2]}`; }
+
+            const badge = task.is_active ? '<span class="status-active">监控中</span>' : '<span class="status-disabled">已挂起</span>';
+            const btnText = task.is_active ? '暂时禁用' : '启用恢复';
+            const trClass = task.is_active ? '' : 'row-disabled';
+
+            tbody.innerHTML += `
+                <tr class="${trClass}">
+                    <td><strong>${task.name}</strong></td>
+                    <td><span class="code-style">${task.command}</span></td>
+                    <td>${typeMap[task.task_type]}</td>
+                    <td>${displayTime}</td>
+                    <td>${badge}</td>
+                    <td>
+                        <button class="btn-toggle" onclick="toggleTask(${task.id})">${btnText}</button>
+                        <button class="btn-delete" onclick="deleteTask(${task.id})">删除</button>
+                    </td>
+                </tr>`;
+        });
+    }
+
+    async function addTask() {
+        const name = document.getElementById('taskName').value.trim();
+        const command = document.getElementById('command').value; // 获取选择或输入的内容
+        const task_type = document.getElementById('taskType').value;
+        let time_value = '';
+
+        if (!name || !command) { alert('请填写完整的任务名称与指令！'); return; }
+        const mainTime = document.getElementById('taskTime').value;
+        if (!mainTime && task_type !== 'hour') { alert('请设置时间参数！'); return; }
+
+        if (task_type === 'once') time_value = mainTime.replace('T', ' ');
+        else if (task_type === 'minute') time_value = mainTime;
+        else if (task_type === 'hour') {
+            time_value = `${document.getElementById('taskHourInterval').value} ${document.getElementById('taskTime').value}`;
+        }
+        else if (task_type === 'daily') time_value = mainTime;
+        else if (task_type === 'weekly') time_value = `${document.getElementById('taskWeek').value} ${mainTime}`;
+        else if (task_type === 'monthly') time_value = `${document.getElementById('taskMonthDay').value} ${mainTime}`;
+        else if (task_type === 'yearly') time_value = `${document.getElementById('taskYearMonth').value} ${document.getElementById('taskYearDay').value} ${mainTime}`;
+
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, task_type, time_value, device_name: g_deviceName, command })
+        });
+
+        if(!res.ok) {
+            const err = await res.json(); alert(err.detail); return;
+        }
+        document.getElementById('taskName').value = '';
+        loadDeviceTasks();
+    }
+
+    async function toggleTask(id) {
+        await fetch(`/api/tasks/${id}/toggle`, { method: 'PUT' }); loadDeviceTasks();
+    }
+
+    async function deleteTask(id) {
+        if(confirm('确认删除该定时事件？')) { await fetch(`/api/tasks/${id}`, { method: 'DELETE' }); loadDeviceTasks(); }
+    }
+
+    window.onload = function() {
+        loadDeviceAttributes();
+        loadDeviceTasks();
+    }
+</script>
+</body>
+</html>
