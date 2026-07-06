@@ -32,7 +32,8 @@
         .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white;}
         .badge-online { background-color: #28a745; }
         .badge-offline { background-color: #6c757d; }
-        .badge-type-switch { background-color: #17a2b8; }   /* 电脑蓝绿色 */
+        .badge-type-pc { background-color: #007bff; }       /* 电脑蓝色 */
+        .badge-type-switch { background-color: #17a2b8; }   /* 开关器蓝绿色 */
         .badge-type-sensor { background-color: #6f42c1; }   /* 传感器紫色 */
     </style>
 </head>
@@ -59,6 +60,7 @@
                     <label for="devType">设备类型:</label>
                     <select id="devType">
                         <option value="电脑">🔌 电脑 (可控执行机构)</option>
+                        <option value="开关器">🎛️ 开关器 (可控执行机构)</option>
                         <option value="传感器">📡 传感器 (数据采集上报)</option>
                     </select>
                 </div>
@@ -75,7 +77,7 @@
                 </div>
                 <div class="form-group">
                     <label for="devData">运行快照数据:</label>
-                    <input type="text" id="devData" placeholder="如：{'relay':1}">
+                    <input type="text" id="devData" placeholder="如：ON">
                 </div>
             </div>
             <button onclick="addDevice()">保存设备到系统</button>
@@ -107,12 +109,22 @@
 
         devices.forEach(dev => {
             const statusClass = dev.status === '在线' ? 'badge-online' : 'badge-offline';
-            // 根据类型绑定对应的 CSS 样式类
-            const typeClass = dev.device_type === '电脑' ? 'badge-type-switch' : 'badge-type-sensor';
+
+            let typeClass = 'badge-type-sensor';
+            let targetUrl = `/detail?name=${encodeURIComponent(dev.name)}`; // 默认去详情控盘页
+
+            if (dev.device_type === '电脑') {
+                typeClass = 'badge-type-pc';
+            } else if (dev.device_type === '开关器') {
+                typeClass = 'badge-type-switch';
+            } else if (dev.device_type === '传感器') {
+                typeClass = 'badge-type-sensor';
+                targetUrl = `/sensor?name=${encodeURIComponent(dev.name)}`; // 👈 【核心点】：如果是传感器，分流去传感器数据监控页
+            }
 
             tbody.innerHTML += `
                 <tr>
-                    <td><a class="device-link" href="/detail?name=${encodeURIComponent(dev.name)}">💡 ${dev.name}</a></td>
+                    <td><a class="device-link" href="${targetUrl}">📊 ${dev.name}</a></td>
                     <td><span class="code-style">${dev.uuid}</span></td>
                     <td><span class="badge ${typeClass}">${dev.device_type}</span></td>
                     <td><b>${dev.location}</b></td>
@@ -126,7 +138,7 @@
     async function addDevice() {
         const name = document.getElementById('devName').value.trim();
         const uuid = document.getElementById('devUUID').value.trim();
-        const device_type = document.getElementById('devType').value; // 获取类型
+        const device_type = document.getElementById('devType').value;
         const location = document.getElementById('devLocation').value.trim();
         const status = document.getElementById('devStatus').value;
         const data = document.getElementById('devData').value.trim();

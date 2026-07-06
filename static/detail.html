@@ -90,10 +90,12 @@
                     <div class="countdown-zone">
                         <input type="number" id="countdownSeconds" placeholder="秒数" style="width: 80px; padding: 6px;" min="1" value="10">
                         <span style="font-size: 14px; font-weight: bold;">秒后，执行命令:</span>
-                        <select id="countdownCmd" style="padding: 6px;">
-                            <option value="FORCE_OFF">❌ 强制关机 (FORCE_OFF)</option>
-                            <option value="ON">🟢 开 (ON)</option>
-                        </select>
+                        <span id="countdownCmdContainer">
+                            <select id="countdownCmd" style="padding: 6px;">
+                                <option value="FORCE_OFF">❌ 强制关机 (FORCE_OFF)</option>
+                                <option value="ON">🟢 开 (ON)</option>
+                            </select>
+                        </span>
                         <button class="btn-blue" onclick="startCountdown()" style="padding: 7px 15px;">启动倒计时</button>
                     </div>
                 </div>
@@ -156,8 +158,9 @@
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     const g_deviceName = urlParams.get('name');
-    let g_currentPowerState = "FORCE_OFF"; // 2. 全局状态缓存修改为 FORCE_OFF
+    let g_currentPowerState = "OFF";
     let g_countdownInterval = null;
+    let g_deviceType = ""; // 缓存当前设备类型
 
     function toggleTimeInput() {
         const type = document.getElementById('taskType').value;
@@ -178,6 +181,7 @@
         if (!response.ok) { alert('获取硬件属性失败！'); return; }
         const dev = await response.json();
 
+        g_deviceType = dev.device_type; // 存入全局缓存
         document.getElementById('devTitle').innerHTML = `📡 设备 [${dev.name}] 物理属性透视`;
         document.getElementById('listTitle').innerHTML = `📋 设备 [${dev.name}] 已设定的全部定时事件`;
         document.getElementById('infoName').innerText = dev.name;
@@ -187,40 +191,66 @@
         document.getElementById('infoStatus').innerText = dev.status;
         document.getElementById('infoData').innerText = dev.data || '无数据';
 
-        // 核心差异逻辑：判断如果是电脑，注入专属操控控制台，并限定定时器指令只能选择 ON/FORCE_OFF
-        if (dev.device_type === "电脑") {
+        // 核心差异扩展：允许电脑和开关器使用控制沙盒
+        if (dev.device_type === "电脑" || dev.device_type === "开关器") {
             document.getElementById('switchSandboxWrapper').style.display = 'block';
 
-            // 3. 将普通定时器输入框锁死为规范的 ON / FORCE_OFF 选择下拉菜单
-            document.getElementById('cmdInputContainer').innerHTML = `
-                <select id="command">
-                    <option value="ON">🟢 开启指令 (ON)</option>
-                    <option value="FORCE_OFF">❌ 强制关机指令 (FORCE_OFF)</option>
-                </select>`;
+            // 根据类型动态渲染“普通定时器选择单”以及“倒计时选择单”
+            if (dev.device_type === "电脑") {
+                document.getElementById('cmdInputContainer').innerHTML = `
+                    <select id="command">
+                        <option value="ON">🟢 开启指令 (ON)</option>
+                        <option value="FORCE_OFF">❌ 强制关机指令 (FORCE_OFF)</option>
+                    </select>`;
+                document.getElementById('countdownCmdContainer').innerHTML = `
+                    <select id="countdownCmd" style="padding: 6px;">
+                        <option value="FORCE_OFF">❌ 强制关机 (FORCE_OFF)</option>
+                        <option value="ON">🟢 开 (ON)</option>
+                    </select>`;
+            } else if (dev.device_type === "开关器") {
+                document.getElementById('cmdInputContainer').innerHTML = `
+                    <select id="command">
+                        <option value="ON">🟢 开启指令 (ON)</option>
+                        <option value="OFF">❌ 关闭指令 (OFF)</option>
+                    </select>`;
+                document.getElementById('countdownCmdContainer').innerHTML = `
+                    <select id="countdownCmd" style="padding: 6px;">
+                        <option value="OFF">❌ 关闭 (OFF)</option>
+                        <option value="ON">🟢 开 (ON)</option>
+                    </select>`;
+            }
 
-            // 4. 解析当前快照状态，修改对 FORCE_OFF 的匹配判断与文案高亮显示
-            if (dev.data && dev.data.includes("ON")) {
+            // 解析当前快照状态，控制按钮高亮文案
+            if (dev.data && dev.data.trim() === "ON") {
                 g_currentPowerState = "ON";
-                document.getElementById('immediateSwitchBtn').innerText = "💡 状态：已开启 (点击强制关机)";
+                document.getElementById('immediateSwitchBtn').innerText = "💡 状态：已开启 (点击关闭)";
                 document.getElementById('immediateSwitchBtn').className = "interactive-btn btn-state-on";
             } else {
-                g_currentPowerState = "FORCE_OFF";
-                document.getElementById('immediateSwitchBtn').innerText = "🔌 状态：已强制关机 (点击开启)";
+                g_currentPowerState = dev.device_type === "电脑" ? "FORCE_OFF" : "OFF";
+                const textLabel = dev.device_type === "电脑" ? "已强制关机" : "已关闭";
+                document.getElementById('immediateSwitchBtn').innerText = `🔌 状态：${textLabel} (点击开启)`;
                 document.getElementById('immediateSwitchBtn').className = "interactive-btn btn-state-off";
             }
+        } else {
+            // 传感器等不可控设备，彻底隐藏沙盒面板，并将指令栏替换为提示
+            document.getElementById('switchSandboxWrapper').style.display = 'none';
+            document.getElementById('cmdInputContainer').innerHTML = `<input type="text" id="command" value="无需控制" disabled style="background:#e9ecef;">`;
         }
     }
 
     // --- 功能1：即时点击开关电源动作控制 ---
     async function toggleImmediatePower() {
-        const nextState = g_currentPowerState === "ON" ? "FORCE_OFF" : "ON";
+        let nextState = "ON";
+        if (g_currentPowerState === "ON") {
+            nextState = g_deviceType === "电脑" ? "FORCE_OFF" : "OFF";
+        }
+
         const response = await fetch(`/api/devices/${encodeURIComponent(g_deviceName)}/control`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ command: nextState })
         });
         if(response.ok) {
-            // 重新刷新属性块和开关控制台外观
             loadDeviceAttributes();
         }
     }
@@ -233,14 +263,12 @@
 
         if (isNaN(remaining) || remaining <= 0) { alert("请输入正整数秒数！"); return; }
 
-        // 1. 同步把请求发送给后端任务调度器在未来精准触发日志
         fetch(`/api/devices/${encodeURIComponent(g_deviceName)}/countdown`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ seconds: remaining, command: targetCmd })
         });
 
-        // 2. 前端启动本地定时器刷新视觉特效
         if(g_countdownInterval) clearInterval(g_countdownInterval);
         const liveStatus = document.getElementById('countdownLiveStatus');
 
@@ -249,7 +277,6 @@
             if (remaining <= 0) {
                 clearInterval(g_countdownInterval);
                 liveStatus.innerHTML = `🎉 倒计时结束！已发出 <b>${targetCmd}</b> 指令。`;
-                // 延迟 1.5 秒重新刷新设备最新开关快照状态
                 setTimeout(() => { loadDeviceAttributes(); liveStatus.innerText = ""; }, 1500);
             } else {
                 liveStatus.innerHTML = `<span class="timer-running">⌛ 安全线程运行中：将在 ${remaining} 秒后执行硬件 [${targetCmd}]</span>`;
@@ -296,11 +323,18 @@
 
     async function addTask() {
         const name = document.getElementById('taskName').value.trim();
-        const command = document.getElementById('command').value; // 获取选择或输入的内容
+        const command = document.getElementById('command').value;
         const task_type = document.getElementById('taskType').value;
         let time_value = '';
 
         if (!name || !command) { alert('请填写完整的任务名称与指令！'); return; }
+
+        // 针对传感器做一层防护
+        if (g_deviceType === "传感器") {
+            alert("传感器设备无需且不支持创建定时控制任务！");
+            return;
+        }
+
         const mainTime = document.getElementById('taskTime').value;
         if (!mainTime && task_type !== 'hour') { alert('请设置时间参数！'); return; }
 

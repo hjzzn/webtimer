@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>传感器实时监测看板</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 30px; background-color: #f4f6f9; color: #333;}
+        .nav-bar { max-width: 800px; margin: 0 auto 20px auto; display: flex; gap: 10px; background: #343a40; padding: 10px; border-radius: 6px; }
+        .nav-bar a { color: #adbcda; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-size: 15px;}
+        .nav-bar a:hover { color: white; background: #495057; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; border-top: 5px solid #6f42c1;}
+        h2 { margin-top: 0; color: #222; font-size: 22px; margin-bottom: 5px;}
+        .uuid-tag { font-family: Consolas, monospace; background: #eef1f6; padding: 4px 10px; border-radius: 4px; font-size: 14px; color: #555; display: inline-block; margin-bottom: 25px;}
+
+        .data-display-box { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 40px 20px; margin: 20px 0; position: relative; overflow: hidden;}
+        .data-title { font-size: 15px; color: #666; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;}
+        .data-value { font-size: 56px; font-weight: bold; color: #6f42c1; margin: 15px 0; font-family: 'Courier New', Courier, monospace;}
+
+        .pulse-dot { width: 10px; height: 10px; background-color: #28a745; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1.5s infinite;}
+        .status-bar { font-size: 14px; color: #555; margin-top: 15px; background: #fff; padding: 10px; border-radius: 6px; display: inline-flex; align-items: center; border: 1px solid #ddd;}
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 8px rgba(40, 167, 69, 0); }
+            100% { transform: scale(0.9); opacity: 0; box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        .topic-info { font-size: 13px; color: #777; text-align: left; margin-top: 30px; background: #fafafa; padding: 12px; border-radius: 6px; border-left: 4px solid #adb5bd;}
+        .topic-info p { margin: 4px 0; font-family: Consolas, monospace;}
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <a href="/">⬅️ 返回首页设备资产台账</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2 id="sensorTitle">📡 传感器数据监测中心</h2>
+            <div id="sensorUUID" class="uuid-tag">加载中...</div>
+
+            <div class="data-display-box">
+                <div class="data-title">🔮 当前设备上报实时数据快照</div>
+                <div id="realtimeValue" class="data-value">--</div>
+                <div>
+                    <span class="pulse-dot"></span>
+                    <span style="font-size: 13px; color:#28a745; font-weight:bold;">MQTT 智能节能模式激活（按需高频刷新中）</span>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <span>物理位置：<strong id="sensorLocation">-</strong></span>
+                <span style="margin: 0 15px; color:#ccc;">|</span>
+                <span>网络状态：<strong id="sensorStatus">-</strong></span>
+            </div>
+
+            <div class="topic-info">
+                <strong style="color:#444; font-family:sans-serif;">🌐 物联网按需控流控制规则：</strong>
+                <p>🔹 仅当你停留在本页面时，系统每 3 秒才会给硬件发射读数据消息：<span id="readTopic" style="color:#bf360c; font-weight:bold;">-</span></p>
+                <p>🔹 退出页面后，后端心跳计时器过期，将自动**彻底关闭**消息下发通道，为您省流量。</p>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const g_sensorName = urlParams.get('name');
+    let g_sensorUUID = ""; // 缓存 UUID
+
+    async function updateSensorData() {
+        if (!g_sensorName) return;
+        try {
+            const response = await fetch(`/api/devices/${encodeURIComponent(g_sensorName)}`);
+            if (response.ok) {
+                const dev = await response.json();
+
+                g_sensorUUID = dev.uuid; // 缓存下来供心跳使用
+                document.getElementById('sensorTitle').innerText = `📡 传感器 [${dev.name}] 数据监测中心`;
+                document.getElementById('sensorUUID').innerText = `UUID: ${dev.uuid}`;
+                document.getElementById('sensorLocation').innerText = dev.location;
+                document.getElementById('sensorStatus').innerText = dev.status;
+                document.getElementById('realtimeValue').innerText = dev.data || "等待硬件首次上报...";
+
+                document.getElementById('readTopic').innerText = `/SENSOR/${dev.uuid}/READ`;
+            }
+        } catch (e) {
+            console.error("更新数据失败", e);
+        }
+    }
+
+    // 【新增核心功能】：维持激活状态的前端心跳上报包
+    async function sendKeepAliveHeartbeat() {
+        if (!g_sensorUUID) return;
+        try {
+            // 向后端 API 发起维持请求
+            await fetch(`/api/devices/sensor-ping/${encodeURIComponent(g_sensorUUID)}`, { method: 'POST' });
+        } catch (e) {
+            console.error("发送激活心跳包异常", e);
+        }
+    }
+
+    // 页面初始化加载一次基础信息
+    updateSensorData().then(() => {
+        // 在首次获取到 UUID 时，立刻进行一次心跳激活，避免前 3 秒卡顿
+        sendKeepAliveHeartbeat();
+    });
+
+    // 1. 每 1 秒刷新一次前端界面展示（从数据库读取快照数据）
+    setInterval(updateSensorData, 1000);
+
+    // 2. 每 3 秒给后端发一次心跳。只要这个页面还在浏览器里，后端就会继续轮询 MQTT
+    setInterval(sendKeepAliveHeartbeat, 3000);
+</script>
+</body>
+</html>
