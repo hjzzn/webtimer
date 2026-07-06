@@ -32,7 +32,7 @@
         .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white;}
         .badge-online { background-color: #28a745; }
         .badge-offline { background-color: #6c757d; }
-        .badge-type-switch { background-color: #17a2b8; }   /* 开关器蓝绿色 */
+        .badge-type-switch { background-color: #17a2b8; }   /* 电脑蓝绿色 */
         .badge-type-sensor { background-color: #6f42c1; }   /* 传感器紫色 */
     </style>
 </head>
@@ -58,7 +58,7 @@
                 <div class="form-group">
                     <label for="devType">设备类型:</label>
                     <select id="devType">
-                        <option value="开关器">🔌 开关器 (可控执行机构)</option>
+                        <option value="电脑">🔌 电脑 (可控执行机构)</option>
                         <option value="传感器">📡 传感器 (数据采集上报)</option>
                     </select>
                 </div>
@@ -108,7 +108,7 @@
         devices.forEach(dev => {
             const statusClass = dev.status === '在线' ? 'badge-online' : 'badge-offline';
             // 根据类型绑定对应的 CSS 样式类
-            const typeClass = dev.device_type === '开关器' ? 'badge-type-switch' : 'badge-type-sensor';
+            const typeClass = dev.device_type === '电脑' ? 'badge-type-switch' : 'badge-type-sensor';
 
             tbody.innerHTML += `
                 <tr>

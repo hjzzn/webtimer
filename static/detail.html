@@ -91,7 +91,7 @@
                         <input type="number" id="countdownSeconds" placeholder="秒数" style="width: 80px; padding: 6px;" min="1" value="10">
                         <span style="font-size: 14px; font-weight: bold;">秒后，执行命令:</span>
                         <select id="countdownCmd" style="padding: 6px;">
-                            <option value="OFF">❌ 关 (OFF)</option>
+                            <option value="FORCE_OFF">❌ 强制关机 (FORCE_OFF)</option>
                             <option value="ON">🟢 开 (ON)</option>
                         </select>
                         <button class="btn-blue" onclick="startCountdown()" style="padding: 7px 15px;">启动倒计时</button>
@@ -156,7 +156,7 @@
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     const g_deviceName = urlParams.get('name');
-    let g_currentPowerState = "OFF"; // 全局缓存设备当前实际开关状态
+    let g_currentPowerState = "FORCE_OFF"; // 2. 全局状态缓存修改为 FORCE_OFF
     let g_countdownInterval = null;
 
     function toggleTimeInput() {
@@ -187,25 +187,25 @@
         document.getElementById('infoStatus').innerText = dev.status;
         document.getElementById('infoData').innerText = dev.data || '无数据';
 
-        // 核心差异逻辑：判断如果是开关器，注入专属操控控制台，并限定定时器指令只能选择 ON/OFF
-        if (dev.device_type === "开关器") {
+        // 核心差异逻辑：判断如果是电脑，注入专属操控控制台，并限定定时器指令只能选择 ON/FORCE_OFF
+        if (dev.device_type === "电脑") {
             document.getElementById('switchSandboxWrapper').style.display = 'block';
 
-            // 将普通定时器输入框强行锁死为规范的 ON / OFF 选择下拉菜单
+            // 3. 将普通定时器输入框锁死为规范的 ON / FORCE_OFF 选择下拉菜单
             document.getElementById('cmdInputContainer').innerHTML = `
                 <select id="command">
                     <option value="ON">🟢 开启指令 (ON)</option>
-                    <option value="OFF">❌ 关闭指令 (OFF)</option>
+                    <option value="FORCE_OFF">❌ 强制关机指令 (FORCE_OFF)</option>
                 </select>`;
 
-            // 解析当前快照状态，控制即时按钮的样式高亮
+            // 4. 解析当前快照状态，修改对 FORCE_OFF 的匹配判断与文案高亮显示
             if (dev.data && dev.data.includes("ON")) {
                 g_currentPowerState = "ON";
-                document.getElementById('immediateSwitchBtn').innerText = "💡 状态：已开启 (点击关闭)";
+                document.getElementById('immediateSwitchBtn').innerText = "💡 状态：已开启 (点击强制关机)";
                 document.getElementById('immediateSwitchBtn').className = "interactive-btn btn-state-on";
             } else {
-                g_currentPowerState = "OFF";
-                document.getElementById('immediateSwitchBtn').innerText = "🔌 状态：已关闭 (点击开启)";
+                g_currentPowerState = "FORCE_OFF";
+                document.getElementById('immediateSwitchBtn').innerText = "🔌 状态：已强制关机 (点击开启)";
                 document.getElementById('immediateSwitchBtn').className = "interactive-btn btn-state-off";
             }
         }
@@ -213,7 +213,7 @@
 
     // --- 功能1：即时点击开关电源动作控制 ---
     async function toggleImmediatePower() {
-        const nextState = g_currentPowerState === "ON" ? "OFF" : "ON";
+        const nextState = g_currentPowerState === "ON" ? "FORCE_OFF" : "ON";
         const response = await fetch(`/api/devices/${encodeURIComponent(g_deviceName)}/control`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

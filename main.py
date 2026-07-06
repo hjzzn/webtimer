@@ -4,7 +4,7 @@ import json
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
@@ -92,7 +92,7 @@ def sendCommandToMqtt(topic: str, payload_str: str):
 
     if MQTT_AVAILABLE and mqtt_client and mqtt_client.is_connected():
         try:
-            # 发送纯文本内容 (ON/OFF)，开启 QoS=1 工业级送达保证
+            # 发送纯文本内容 (ON/FORCE_OFF)，开启 QoS=1 工业级送达保证
             info = mqtt_client.publish(topic, payload_str, qos=1)
             info.wait_for_publish()
             print(f" 状态反馈: ✨ 已成功发射并加密送达云端")
@@ -114,8 +114,8 @@ def execute_task(task_name: str, device_name: str, command: str):
     db.close()
 
     print(f"\n⏰ 定时排期触发 -> 事项: {task_name} | 目标: {device_name}")
-    if device and device.device_type == "开关器" and command in ["ON", "OFF"]:
-        # 动态构造主题，内容直接发 ON 或 OFF 字符串
+    if device and device.device_type == "电脑" and command in ["ON", "FORCE_OFF"]:
+        # 动态构造主题，内容直接发 ON 或 FORCE_OFF 字符串
         dynamic_topic = f"SWITCH/{device.uuid}/POWER"
         sendCommandToMqtt(dynamic_topic, command)
     else:
@@ -129,7 +129,7 @@ def execute_countdown_task(device_name: str, command: str):
 
     print(f"\n⏳ 倒计时终点到达 -> 目标: {device_name}")
     if device:
-        # 动态构造主题，内容直接发 ON 或 OFF 字符串
+        # 动态构造主题，内容直接发 ON 或 FORCE_OFF 字符串
         dynamic_topic = f"SWITCH/{device.uuid}/POWER"
         sendCommandToMqtt(dynamic_topic, command)
 
@@ -302,9 +302,9 @@ def immediate_control_device(name: str, payload: ImmediateControl):
         db.close()
         raise HTTPException(status_code=404, detail="设备不存在")
 
-    if payload.command not in ["ON", "OFF"]:
+    if payload.command not in ["ON", "FORCE_OFF"]:
         db.close()
-        raise HTTPException(status_code=400, detail="开关器仅接受 ON 或 OFF 指令")
+        raise HTTPException(status_code=400, detail="电脑仅接受 ON 或 FORCE_OFF 指令")
 
     # 【核心修复】：在关闭数据库和提交前，先把关键的 uuid 提取成普通的字符串变量
     device_uuid = device.uuid
@@ -322,8 +322,8 @@ def immediate_control_device(name: str, payload: ImmediateControl):
 
 @app.post("/api/devices/{name}/countdown")
 def register_device_countdown(name: str, payload: CountdownControl):
-    if payload.command not in ["ON", "OFF"]:
-        raise HTTPException(status_code=400, detail="倒计时终点指令仅支持 ON 或 OFF")
+    if payload.command not in ["ON", "FORCE_OFF"]:
+        raise HTTPException(status_code=400, detail="倒计时终点指令仅支持 ON 或 FORCE_OFF")
     if payload.seconds <= 0:
         raise HTTPException(status_code=400, detail="倒计时秒数必须大于 0")
 
